@@ -105,10 +105,13 @@ def main():
             businesslist.save_to_excel(f"Gmap scrape {looking_for}")
             businesslist.save_to_csv(f"Gmap scrape {looking_for}")
 
+        # Close the browser 
         browser.close()
 
 
+# If the python file run directly
 if __name__ == "__main__":
+    # An option for user 
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--search", type=str, default="Hospital Engaland", help="Search the desire location and place")
     parser.add_argument("-t", "--total", type=int, default=5, help="Decide how many data that will be extracted")
@@ -119,4 +122,5 @@ if __name__ == "__main__":
     total_data = args.total
     save_format = args.file
     
+    # Call the main function
     main()
