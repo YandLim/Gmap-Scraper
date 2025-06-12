@@ -38,11 +38,12 @@ class Businesslist:
 # Main feature
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         # Open the Google map web page
-        page.goto("https://maps.app.goo.gl/iFpQVotV9J7ydMGR9", timeout=15000)
+        page.goto("https://www.google.com/maps")
+        page.evaluate("document.body.style.zoom = '60%'")
         page.wait_for_timeout(5000)
 
         # Find and fill the search box
@@ -50,56 +51,97 @@ def main():
         page.keyboard.press("Enter")
         page.wait_for_timeout(3000)
 
-        # Find all the avaible data
-        listings = page.locator("//div[contains(@class, 'Nv2PK')]").all()
-        if len(listings) == 0: # If nothing found, break tghe program
-            print("No result are found")
-            browser.close()
-            return
-        
+
+        upper_count = 0
+        current_count = 1
+        failed_count = 0
+        # Scroll the page until found amount of data user wanted
+        while True:
+            page.locator("//div[contains(@class, 'Nv2PK')]").nth(current_count - 5).hover()
+            page.mouse.wheel(0, 50000)
+            current_count = page.locator("//div[contains(@class, 'Nv2PK')]").count()
+
+            # Find the biggest count so far
+            if upper_count == current_count:
+                failed_count += 1
+                print(f"Failed: {failed_count}")
+            upper_count = max(upper_count, current_count)
+            
+            # Find all the avaible data        
+            if current_count >= total_data:
+                listings = page.locator("//div[contains(@class, 'Nv2PK')]").all()[:total_data]
+                print(f"Found: {page.locator("//div[contains(@class, 'Nv2PK')]").count()} data")
+                break
+            else:
+                print(f"Curently found: {page.locator("//div[contains(@class, 'Nv2PK')]").count()} data")
+                if failed_count == 5:
+                    listings = page.locator("//div[contains(@class, 'Nv2PK')]").all()
+                    print("No more data found")
+                    break
+                page.wait_for_timeout(1500)
+
         # Define the made class
         businesslist = Businesslist()
         
         # Looping throught every data found
-        for listing in tqdm(listings, desc="Extracting", unit="Data")[:total_data]:
-            listing.click() # Click the place from listings and wait for 1.5second before continue
-            page.wait_for_timeout(1500)
-
-            # Define the made class
-            business = Business()
-
-            # Find and store the place name and address to class business
-            business.name = page.locator("//h1[contains(@class, 'DUwDvf')]").inner_text()
-            business.address = page.locator(".rogA2c").nth(0).inner_text()
-
-            # Looping throght the line of data to find the phone number
-            for idx in [2, 3, 4]:
-                phone_num = page.locator(".Io6YTe.fontBodyMedium.kR99db.fdkmkc").nth(idx).inner_text()
-                if re.search(r"\+?\d[\d\s\-]+", phone_num):
-                    business.phone = phone_num
-                    break
-
-            # Find and store the business website and rating to made class
-            business.website = page.locator(".rogA2c.ITvuef").inner_text()
-            rating_elemen = page.locator(".fontBodyMedium.dmRWX").inner_text().split("\n")
-            business.rating = "".join(rating_elemen)
-            
-            # Find and click share button in Indonesia language or English language
+        max_tried = 3
+        page.wait_for_timeout(5000)
+        for listing in tqdm(listings, desc="Extracting", unit="Data"):
             try:
-                page.locator("//button[@data-value='Bagikan']").click()
-            except:
-                page.locator("//button[@data-value='Share']").click()
+                listing.click() # Click the place from listings and wait for 1.5second before continue
+                page.wait_for_timeout(2500)
 
-            # Get the business link, and store them all into a list 
-            business.link = page.locator(".vrsrZe").get_attribute("value")
-            page.locator("//button[@jsaction='modal.close']").click()
-            businesslist.business_list.append(business)
-            page.wait_for_timeout(1500)
+                # Define the made class
+                business = Business()
+
+                for i in range(max_tried):
+                    try:
+                        # Find and store the place name and address to class business
+                        business.name = page.locator("//h1[contains(@class, 'DUwDvf')]").inner_text()
+                        business.address = page.locator(".rogA2c").nth(0).inner_text()
+
+                        # Looping throght the line of data to find the phone number
+                        try:
+                            for idx in [1, 2, 3, 4]:
+                                phone_num = page.locator(".Io6YTe.fontBodyMedium.kR99db.fdkmkc").nth(idx).inner_text()
+                                if re.search(r"^\+?\(?\d[\d\s\-\(\)]*\)?$", phone_num):
+                                    business.phone = phone_num
+                                    break
+                        except:
+                            business.phone = "Unavaible"
+
+                        # Find and store the business website and rating to made class
+                        try:
+                            business.website = page.locator(".rogA2c.ITvuef").inner_text()
+                        except:
+                            business.website = "Unavaible"
+
+                        rating_elemen = page.locator(".fontBodyMedium.dmRWX").inner_text().split("\n")
+                        rating = "".join(rating_elemen)
+                        business.rating = re.sub(r"\).*", ")", rating)
+                        
+                        # Find and click share button in Indonesia language or English language
+                        try:
+                            page.locator("button.g88MCb.S9kvJb[data-value='Bagikan']").click()
+                        except:
+                            page.locator("button.g88MCb.S9kvJb[data-value='Share']").click()
+
+                        # Get the business link, and store them all into a list 
+                        business.link = page.locator(".vrsrZe").get_attribute("value")
+                        page.locator("//button[@jsaction='modal.close']").click()
+                        businesslist.business_list.append(business)
+                        break
+                    except:
+                        continue
+            except:
+                continue
+
+            page.wait_for_timeout(2500)
 
         # Call the made save to csv or xlsx function
-        if "xlsx" in save_format:
+        if "csv" not in save_format:
             businesslist.save_to_excel(f"Gmap scrape {looking_for}")
-        elif "csv" in save_format:
+        elif "xlsx" not in save_format:
             businesslist.save_to_csv(f"Gmap scrape {looking_for}")
         else:
             businesslist.save_to_excel(f"Gmap scrape {looking_for}")
@@ -113,7 +155,7 @@ def main():
 if __name__ == "__main__":
     # An option for user 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--search", type=str, default="Hospital Engaland", help="Search the desire location and place")
+    parser.add_argument("-s", "--search", type=str, default="Hospital England", help="Search the desire location and place")
     parser.add_argument("-t", "--total", type=int, default=5, help="Decide how many data that will be extracted")
     parser.add_argument("-f", "--file", type=str, default=["xlsx", "csv"], choices=["xlsx", "csv"], help="Choose output file format. Not choosing any will result with both file as result")
     args = parser.parse_args()
