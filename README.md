@@ -9,4 +9,9 @@ A powerful Python-based scraper that extracts high-value business leads directly
 * Structured data output for easy analysis and integration
 
 # ❓How to Use:
-+ fe
+* Instal requirements.txt (pip install -r requirements.txt)
+* call the main.py (python main.py)
+* -s, --search SEARCH, Search the desire location and place (-s=Hotel New york)
+* -t, --total TOTAL, Decide how many data that will be extracted (-t=50)
+* -f {xlsx,csv}, --file {xlsx,csv}
+                        Choose output file format. Not choosing any will result with both file as result
