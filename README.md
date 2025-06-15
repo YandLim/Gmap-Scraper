@@ -15,7 +15,7 @@ A powerful Python-based scraper that extracts high-value business leads directly
 * -t, --total TOTAL, Decide how many data that will be extracted (-t=50)
 * -f, --file {xlsx,csv}, Choose output file format. Not choosing any will result with both file as result (-f=csv)
 
-# Struggle 
+# 😩Struggle 
 - Dynamic content
 - Random data placing for every place
 - Same element and class name for every data
